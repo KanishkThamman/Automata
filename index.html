@@ -3,29 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>A-Frame 3D Model Viewer</title>
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <title>Three.js 3D Model Viewer with WASD Controls</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; }
+        canvas { display: block; }
+        #instructions {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            max-width: 300px;
+        }
+        #closeInstructions {
+            float: right;
+            cursor: pointer;
+            padding: 5px;
+        }
+    </style>
 </head>
 <body>
-    <a-scene>
-        <!-- Camera and controls -->
-        <a-entity camera look-controls position="0 1.6 0"></a-entity>
+    <div id="instructions">
+        <span id="closeInstructions">&times;</span>
+        <h2>Instructions</h2>
+        <ul>
+            <li>WASD keys: Move camera</li>
+            <li>Left mouse button: Rotate view</li>
+            <li>Right mouse button: Pan view</li>
+            <li>Scroll wheel: Zoom in/out</li>
+        </ul>
+        <p>Click the X to close this panel</p>
+    </div>
 
-        <!-- Light -->
-        <a-light type="ambient" color="#FFFFFF" intensity="0.8"></a-light>
-        <a-light type="directional" color="#FFFFFF" intensity="0.5" position="-1 2 1"></a-light>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script>
+        let scene, camera, renderer, controls, model;
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let direction = new THREE.Vector3();
+        let movementSpeed = 0.1;
 
-        <!-- Load 3D model -->
-        <a-entity 
-            gltf-model="url(Final Full Assembly.glb)" 
-            scale="10 10 10 10"
-            rotation="0 180 0"
-            position="0 -2 0"
-        ></a-entity>
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xcccccc);
 
-        <a-entity camera look-controls>
-            <a-cursor raycaster="objects: .interactable;"></a-cursor>
-        </a-entity>
-    </a-scene>
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
+
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight.position.set(1, 1, 1);
+            scene.add(directionalLight);
+
+            const loader = new THREE.GLTFLoader();
+            loader.load(
+                'Final Full Assembly.glb',
+                function (gltf) {
+                    model = gltf.scene;
+                    model.scale.set(10, 10, 10);
+                    model.rotation.y = Math.PI;
+                    scene.add(model);
+                },
+                function (xhr) {
+                    console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+                },
+                function (error) {
+                    console.error('An error happened', error);
+                }
+            );
+
+            window.addEventListener('resize', onWindowResize, false);
+            document.addEventListener('keydown', onKeyDown, false);
+            document.addEventListener('keyup', onKeyUp, false);
+
+            // Instructions panel close button
+            document.getElementById('closeInstructions').addEventListener('click', function() {
+                document.getElementById('instructions').style.display = 'none';
+            });
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onKeyDown(event) {
+            switch (event.code) {
+                case 'KeyW': moveForward = true; break;
+                case 'KeyS': moveBackward = true; break;
+                case 'KeyA': moveLeft = true; break;
+                case 'KeyD': moveRight = true; break;
+            }
+        }
+
+        function onKeyUp(event) {
+            switch (event.code) {
+                case 'KeyW': moveForward = false; break;
+                case 'KeyS': moveBackward = false; break;
+                case 'KeyA': moveLeft = false; break;
+                case 'KeyD': moveRight = false; break;
+            }
+        }
+
+        function updateCamera() {
+            direction.z = Number(moveForward) - Number(moveBackward);
+            direction.x = Number(moveRight) - Number(moveLeft);
+            direction.normalize();
+
+            if (moveForward || moveBackward) camera.position.z -= direction.z * movementSpeed;
+            if (moveLeft || moveRight) camera.position.x -= direction.x * movementSpeed;
+
+            controls.target.set(0, 0, 0);
+            controls.update();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            updateCamera();
+            renderer.render(scene, camera);
+        }
+
+        init();
+        animate();
+    </script>
 </body>
 </html>
